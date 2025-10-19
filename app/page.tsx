@@ -126,26 +126,25 @@ export default function Home() {
       return sequenceName;
     }
 
-    // Skip _other fields
-    if (fieldName.endsWith('_other')) {
+    // Skip other_ fields
+    if (fieldName.startsWith('other_')) {
       return '';
     }
 
     // Handle by type
     if (fieldSchema.enum && fieldSchema.enum.length > 0) {
       // Pick first enum value
-      return fieldSchema.enum[0];
+      return fieldSchema.enum[Math.floor(Math.random() * fieldSchema.enum.length)];
     }
 
-    if (fieldSchema.type === 'string') {
-      if (fieldSchema.format === 'date' || fieldName.toLowerCase().includes('date')) {
-        return generateRandomDate();
-      }
-      return 'test value';
+    if (fieldSchema.format === 'date' || fieldName.toLowerCase().includes('date')) {
+      return generateRandomDate();
     }
 
     if (fieldSchema.type === 'integer' || fieldSchema.type === 'number') {
-      return '1';
+      // Return a random integer between 1 and 100 (inclusive) as a string
+      const randomInt = Math.floor(Math.random() * 100) + 1;
+      return String(randomInt);
     }
 
     if (fieldSchema.type === 'boolean') {
@@ -165,7 +164,8 @@ export default function Home() {
     // Generate data row
     const values = fieldNames.map(fieldName => {
       const fieldSchema = schemaProperties[fieldName];
-      return generateValueForField(fieldName, fieldSchema, fastaFilename, sequenceName);
+      const value = generateValueForField(fieldName, fieldSchema, fastaFilename, sequenceName);
+      return value;
     });
     const dataRow = values.join('\t');
 
@@ -175,7 +175,7 @@ export default function Home() {
   const generateTsvFilename = (schemaName: string, version: number): string => {
     const now = new Date();
     const timestamp = now.toISOString().split('.')[0].replace(/[-:]/g, '').replace('T', '_');
-    return `${schemaName}_${version}_${timestamp}.tsv`;
+    return `${schemaName}_v${version}_${timestamp}.tsv`;
   };
 
   const downloadFile = (content: string, filename: string) => {
