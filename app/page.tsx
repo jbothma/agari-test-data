@@ -78,6 +78,55 @@ export default function Home() {
     setSelectedVersion(Number(e.target.value));
   };
 
+  const generateRandomString = (length: number): string => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const generateFastaSequenceName = (schemaName: string, version: number): string => {
+    const randomSuffix = generateRandomString(5);
+    return `${schemaName}_v${version}_${randomSuffix}`;
+  };
+
+  const generateFastaFilename = (schemaName: string, version: number): string => {
+    const now = new Date();
+    const timestamp = now.toISOString().split('.')[0].replace(/[-:]/g, '').replace('T', '_');
+    return `${schemaName}_${version}_${timestamp}.fasta`;
+  };
+
+  const generateFastaContent = (sequenceName: string): string => {
+    const sequence = 'ATGC'.repeat(40); // 160 characters total, split into 2 rows of 80
+    const row1 = sequence.slice(0, 80);
+    const row2 = sequence.slice(80, 160);
+    return `>${sequenceName}\n${row1}\n${row2}\n`;
+  };
+
+  const downloadFile = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = () => {
+    if (!selectedSchemaName || selectedVersion === null) return;
+
+    const sequenceName = generateFastaSequenceName(selectedSchemaName, selectedVersion);
+    const fastaContent = generateFastaContent(sequenceName);
+    const fastaFilename = generateFastaFilename(selectedSchemaName, selectedVersion);
+
+    downloadFile(fastaContent, fastaFilename);
+  };
+
   return (
     <div className="min-h-screen p-8 pb-20 sm:p-20 font-sans">
       <main className="max-w-4xl mx-auto">
@@ -142,6 +191,7 @@ export default function Home() {
             </div>
 
             <button
+              onClick={handleDownload}
               className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={!selectedSchemaName || selectedVersion === null}
             >
