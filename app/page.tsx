@@ -105,6 +105,79 @@ export default function Home() {
     return `>${sequenceName}\n${row1}\n${row2}\n`;
   };
 
+  const generateRandomDate = (): string => {
+    const now = new Date();
+    const hundredYearsAgo = new Date(now.getFullYear() - 100, 0, 1);
+    const randomTime = hundredYearsAgo.getTime() + Math.random() * (now.getTime() - hundredYearsAgo.getTime());
+    const randomDate = new Date(randomTime);
+    return randomDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+  };
+
+  const getSelectedSchema = (): Schema | undefined => {
+    return schemas.find(s => s.name === selectedSchemaName && s.version === selectedVersion);
+  };
+
+  const generateValueForField = (fieldName: string, fieldSchema: any, fastaFilename: string, sequenceName: string): string => {
+    // Special fields
+    if (fieldName === 'fasta_file_name') {
+      return fastaFilename;
+    }
+    if (fieldName === 'fasta_header_name') {
+      return sequenceName;
+    }
+
+    // Skip _other fields
+    if (fieldName.endsWith('_other')) {
+      return '';
+    }
+
+    // Handle by type
+    if (fieldSchema.enum && fieldSchema.enum.length > 0) {
+      // Pick first enum value
+      return fieldSchema.enum[0];
+    }
+
+    if (fieldSchema.type === 'string') {
+      if (fieldSchema.format === 'date' || fieldName.toLowerCase().includes('date')) {
+        return generateRandomDate();
+      }
+      return 'test value';
+    }
+
+    if (fieldSchema.type === 'integer' || fieldSchema.type === 'number') {
+      return '1';
+    }
+
+    if (fieldSchema.type === 'boolean') {
+      return 'true';
+    }
+
+    return 'test value';
+  };
+
+  const generateTsvContent = (schemaObj: Schema, fastaFilename: string, sequenceName: string): string => {
+    const schemaProperties = (schemaObj.schema as any)?.properties || {};
+    const fieldNames = Object.keys(schemaProperties);
+
+    // Generate header row
+    const header = fieldNames.join('\t');
+
+    // Generate data row
+    const values = fieldNames.map(fieldName => {
+      const fieldSchema = schemaProperties[fieldName];
+      return generateValueForField(fieldName, fieldSchema, fastaFilename, sequenceName);
+    });
+    const dataRow = values.join('\t');
+
+    return `${header}\n${dataRow}\n`;
+  };
+
+  const generateTsvFilename = (schemaName: string, version: number): string => {
+    const now = new Date();
+    const timestamp = now.toISOString().split('.')[0].replace(/[-:]/g, '').replace('T', '_');
+    return `${schemaName}_${version}_${timestamp}.tsv`;
+  };
+
   const downloadFile = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -120,11 +193,26 @@ export default function Home() {
   const handleDownload = () => {
     if (!selectedSchemaName || selectedVersion === null) return;
 
-    const sequenceName = generateFastaSequenceName(selectedSchemaName, selectedVersion);
-    const fastaContent = generateFastaContent(sequenceName);
-    const fastaFilename = generateFastaFilename(selectedSchemaName, selectedVersion);
+    const schemaObj = getSelectedSchema();
+    if (!schemaObj) {
+      console.error('Schema not found');
+      return;
+    }
 
+    // Generate FASTA file
+    const sequenceName = generateFastaSequenceName(selectedSchemaName, selectedVersion);
+    const fastaFilename = generateFastaFilename(selectedSchemaName, selectedVersion);
+    const fastaContent = generateFastaContent(sequenceName);
+
+    // Generate TSV file
+    const tsvFilename = generateTsvFilename(selectedSchemaName, selectedVersion);
+    const tsvContent = generateTsvContent(schemaObj, fastaFilename, sequenceName);
+
+    // Download both files
     downloadFile(fastaContent, fastaFilename);
+    setTimeout(() => {
+      downloadFile(tsvContent, tsvFilename);
+    }, 100); // Small delay to ensure both downloads trigger
   };
 
   return (
